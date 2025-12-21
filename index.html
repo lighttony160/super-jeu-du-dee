@@ -1,31 +1,508 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Super Jeu du Dé</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 Super Jeu du Dé — Comptes sécurisés</title>
+  <style>
+    :root { --bg: #0b0f14; --card: rgba(255,255,255,0.08); --text:#fff; --accent:#00c6ff; --accent2:#ff00c3; }
+    body { margin:0; font-family: 'Poppins', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+    .screen { display:none; padding: 24px; }
+    .active { display:block; }
+    .section { background: var(--card); border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 18px; max-width: 900px; margin: 14px auto; backdrop-filter: blur(8px); }
+    h1,h2,h3 { margin: 8px 0 14px; }
+    input, select { width: 100%; max-width: 420px; padding: 10px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color:#fff; outline: none; margin: 8px 0; }
+    button { padding: 10px 14px; border-radius: 999px; border: none; color: #fff; cursor: pointer; background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 8px 20px rgba(0,0,0,0.35); margin: 6px 6px 0 0; }
+    .small-btn { padding: 6px 10px; font-size: 13px; }
+    .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 8px 10px; font-size: 14px; }
+    .avatar-option { display:inline-block; margin: 4px; cursor: pointer; border-radius: 50%; padding: 6px; border: 2px solid transparent; }
+    .avatar-option.selected { border-color: var(--accent); background: rgba(255,255,255,0.08); }
+    .notification { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color:#fff; padding: 10px 16px; border-radius: 999px; box-shadow: 0 8px 20px rgba(0,0,0,0.45); opacity:0; pointer-events:none; transition: opacity 0.3s; z-index: 20; }
+    .notification.show { opacity:1; pointer-events:auto; }
+  </style>
 </head>
 <body>
-  <h1>Super Jeu du Dé 🎲</h1>
+  <div id="notification" class="notification"></div>
 
-  <div class="form">
-    <label>Email :</label>
-    <input type="email" id="email" placeholder="Entre ton email">
-    <button onclick="sendCode()">Recevoir code</button>
+  <!-- Splash -->
+  <div id="splash" class="screen active">
+    <div class="section">
+      <h1>🎮 Super Jeu du Dé</h1>
+      <p>Multi‑joueurs, validation email, suppression sécurisée, limite de 3 comptes par appareil.</p>
+      <button onclick="goTo('playersScreen')">Continuer</button>
+    </div>
   </div>
 
-  <div class="form">
-    <label>Code reçu :</label>
-    <input type="text" id="enteredCode" placeholder="Entre ton code">
-    <button onclick="verifyCode()">Valider mon compte</button>
+  <!-- Players -->
+  <div id="playersScreen" class="screen">
+    <div class="section">
+      <h2>👥 Joueurs sur cet appareil (max 3)</h2>
+      <div id="playersList"></div>
+      <button onclick="showCreatePlayer()" id="btnCreatePlayer">Créer un joueur (+)</button>
+      <button class="small-btn" onclick="goTo('splash')">Retour</button>
+    </div>
+
+    <div class="section" id="createPlayerSection" style="display:none;">
+      <h3>➕ Nouveau joueur</h3>
+      <input type="text" id="newPlayerName" placeholder="Nom du joueur">
+      <input type="email" id="newPlayerEmail" placeholder="Email du joueur">
+      <input type="password" id="newPlayerCode" placeholder="Code secret (PIN)">
+      <p>Choisis un avatar :</p>
+      <div id="avatarChoices">
+        <span class="avatar-option" data-avatar="🧑🏻‍🎤">🧑🏻‍🎤</span>
+        <span class="avatar-option" data-avatar="👩🏻‍🎤">👩🏻‍🎤</span>
+        <span class="avatar-option" data-avatar="🧑🏻‍💻">🧑🏻‍💻</span>
+        <span class="avatar-option" data-avatar="👦🏻">👦🏻</span>
+        <span class="avatar-option" data-avatar="👧🏻">👧🏻</span>
+      </div>
+      <button onclick="createPlayer()">Valider</button>
+      <p class="badge">Bonus de bienvenue : 1000 FCFA (non retirable).</p>
+    </div>
+
+    <div class="section">
+      <h3>🔍 Recherche de comptes</h3>
+      <input type="text" id="searchInput" placeholder="Rechercher par nom ou email" onkeyup="filterAccounts()">
+    </div>
+
+    <div class="section">
+      <h3>📋 Gestion des comptes</h3>
+      <table id="accountsTable">
+        <thead>
+          <tr>
+            <th>Avatar</th>
+            <th>Nom</th>
+            <th>Email</th>
+            <th>Niveau</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
-  <div class="form">
-    <label>ID Joueur :</label>
-    <input type="text" id="playerId" placeholder="Entre ton ID">
-    <button onclick="sendDelete()">Supprimer mon compte</button>
+  <!-- Login -->
+  <div id="loginScreen" class="screen">
+    <div class="section">
+      <h2 id="loginTitle">Connexion</h2>
+      <p>Entre le code secret du joueur.</p>
+      <input type="password" id="loginCode" placeholder="Code secret">
+      <button onclick="loginPlayer()">Se connecter</button>
+      <button class="small-btn" onclick="goTo('playersScreen')">Retour</button>
+      <p id="loginMessage"></p>
+    </div>
   </div>
 
-  <script src="script.js"></script>
+  <!-- Validation email -->
+  <div id="validationScreen" class="screen">
+    <div class="section">
+      <h2>📧 Validation du compte</h2>
+      <p>Un code a été envoyé à ton email. Entre-le ci‑dessous pour activer ton compte.</p>
+      <input type="text" id="validationCodeInput" placeholder="Code reçu">
+      <button onclick="validerCompte()">Valider mon compte</button>
+      <button class="small-btn" onclick="goTo('playersScreen')">Retour</button>
+      <p id="validationMessage"></p>
+    </div>
+  </div>
+
+  <!-- Delete definitive confirmation -->
+  <div id="deleteValidationScreen" class="screen">
+    <div class="section">
+      <h2>🗑️ Confirmation de suppression définitive</h2>
+      <p>Entre le code reçu par email pour confirmer la suppression :</p>
+      <input type="text" id="deleteCodeInput" placeholder="Code reçu">
+      <button onclick="validerSuppressionDefinitive()">Confirmer la suppression</button>
+      <button class="small-btn" onclick="goTo('playersScreen')">Retour</button>
+      <p id="deleteMessage"></p>
+    </div>
+  </div>
+
+  <!-- Instructions -->
+  <div id="instructions" class="screen">
+    <div class="section">
+      <h2>📘 Instructions</h2>
+      <ul style="margin:0; padding-left: 18px;">
+        <li>Chaque compte nécessite un email unique et une validation par code.</li>
+        <li>Limite stricte de 3 comptes par appareil (localStorage).</li>
+        <li>Suppression locale (récupérable ailleurs) et suppression définitive avec confirmation par email.</li>
+      </ul>
+      <button onclick="goTo('gameScreen')">Passer au jeu 🎲</button>
+    </div>
+  </div>
+
+  <!-- Simple game screen placeholder -->
+  <div id="gameScreen" class="screen">
+    <div class="section">
+      <h2>🎯 Jeu du Dé (placeholder)</h2>
+      <p>Tu pourras brancher ici tes mini‑jeux existants. Le système de comptes est prêt.</p>
+      <button class="small-btn" onclick="goTo('playersScreen')">Changer de joueur 👥</button>
+    </div>
+  </div>
+
+  <script>
+    // ===============================
+    // Données & état
+    // ===============================
+    let players = [];
+    let currentPlayerId = null;
+    let selectedAvatar = null;
+    let loginTargetId = null;
+
+    const LIMITES = {
+      maxLocalAccounts: 3,
+      bonusBienvenue: 1000
+    };
+
+    // ===============================
+    // Utilitaires UI
+    // ===============================
+    function showNotification(text) {
+      const n = document.getElementById("notification");
+      n.textContent = text;
+      n.classList.add("show");
+      setTimeout(() => n.classList.remove("show"), 2600);
+    }
+
+    function goTo(screen) {
+      document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+      document.getElementById(screen).classList.add("active");
+      if (screen === "playersScreen") {
+        renderPlayersList();
+        renderAccountsTable();
+        filterAccounts(); // applique filtre si champ déjà rempli
+      }
+    }
+
+    // ===============================
+    // Stockage
+    // ===============================
+    function savePlayers() {
+      localStorage.setItem("playersSecure", JSON.stringify(players));
+      localStorage.setItem("currentPlayerIdSecure", currentPlayerId === null ? "" : String(currentPlayerId));
+    }
+
+    function loadPlayers() {
+      const data = localStorage.getItem("playersSecure");
+      if (data) players = JSON.parse(data);
+      const cur = localStorage.getItem("currentPlayerIdSecure");
+      if (cur && cur !== "") currentPlayerId = parseInt(cur);
+    }
+
+    function getPlayerById(id) {
+      return players.find(p => p.id === id) || null;
+    }
+
+    // ===============================
+    // Création & validation
+    // ===============================
+    function showCreatePlayer() {
+      const sec = document.getElementById("createPlayerSection");
+      sec.style.display = sec.style.display === "none" || sec.style.display === "" ? "block" : "none";
+    }
+
+    document.addEventListener("click", (e) => {
+      if (e.target.classList.contains("avatar-option") && e.target.parentElement.id === "avatarChoices") {
+        document.querySelectorAll("#avatarChoices .avatar-option").forEach(el => el.classList.remove("selected"));
+        e.target.classList.add("selected");
+        selectedAvatar = e.target.getAttribute("data-avatar");
+      }
+    });
+
+    function emailExists(email) {
+      return players.some(p => p.email?.toLowerCase() === email.toLowerCase());
+    }
+
+    function generateValidationCode() {
+      return Math.floor(100000 + Math.random() * 900000).toString(); // 6 chiffres
+    }
+
+    function createPlayer() {
+      const name = document.getElementById("newPlayerName").value.trim();
+      const email = document.getElementById("newPlayerEmail").value.trim();
+      const code = document.getElementById("newPlayerCode").value.trim();
+
+      if (!name || !email || !code || !selectedAvatar) {
+        showNotification("Remplis le nom, l'email, le code et choisis un avatar.");
+        return;
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showNotification("Email invalide.");
+        return;
+      }
+
+      if (emailExists(email)) {
+        showNotification("⛔ Cet email est déjà utilisé.");
+        return;
+      }
+
+      if (players.length >= LIMITES.maxLocalAccounts) {
+        showNotification("⛔ Limite de 3 comptes atteinte sur cet appareil.");
+        return;
+      }
+
+      const id = Date.now();
+      const validationCode = generateValidationCode();
+
+      const newPlayer = {
+        id,
+        name,
+        email,
+        code,
+        avatar: selectedAvatar,
+        soldeTotal: LIMITES.bonusBienvenue,
+        soldeRetirable: 0,
+        xp: 0,
+        level: 1,
+        stats: { played:0, wins:0, losses:0 },
+        pendingValidation: true,
+        validationCode
+      };
+
+      players.push(newPlayer);
+      currentPlayerId = id; // pour validation immédiate
+      savePlayers();
+
+      fetch("http://localhost:3000/sendValidationCode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: validationCode })
+      })
+      .then(r => r.text())
+      .then(msg => showNotification(msg))
+      .catch(err => console.error(err));
+
+      // reset UI
+      document.getElementById("newPlayerName").value = "";
+      document.getElementById("newPlayerEmail").value = "";
+      document.getElementById("newPlayerCode").value = "";
+      selectedAvatar = null;
+      document.querySelectorAll("#avatarChoices .avatar-option").forEach(el => el.classList.remove("selected"));
+      document.getElementById("createPlayerSection").style.display = "none";
+
+      goTo("validationScreen");
+    }
+
+    function validerCompte() {
+      const enteredCode = document.getElementById("validationCodeInput").value.trim();
+      const p = getPlayerById(currentPlayerId);
+      if (!p) {
+        document.getElementById("validationMessage").textContent = "⛔ Aucun joueur sélectionné.";
+        return;
+      }
+      if (!p.pendingValidation) {
+        document.getElementById("validationMessage").textContent = "✅ Compte déjà validé.";
+        return;
+      }
+      if (p.validationCode === enteredCode) {
+        p.pendingValidation = false;
+        savePlayers();
+        document.getElementById("validationMessage").textContent = "✅ Compte validé avec succès !";
+        showNotification("Compte activé !");
+        goTo("instructions");
+      } else {
+        document.getElementById("validationMessage").textContent = "⛔ Code incorrect.";
+      }
+    }
+
+    // ===============================
+    // Login
+    // ===============================
+    function prepareLogin(playerId) {
+      loginTargetId = playerId;
+      const p = getPlayerById(playerId);
+      if (!p) return;
+      document.getElementById("loginTitle").textContent = "Connexion — " + p.name;
+      document.getElementById("loginCode").value = "";
+      document.getElementById("loginMessage").textContent = "";
+      goTo("loginScreen");
+    }
+
+    function loginPlayer() {
+      if (loginTargetId === null) return;
+      const p = getPlayerById(loginTargetId);
+      if (!p) return;
+      const code = document.getElementById("loginCode").value.trim();
+
+      if (players.length > LIMITES.maxLocalAccounts) {
+        showNotification("⛔ Limite de 3 comptes atteinte sur cet appareil.");
+        return;
+      }
+
+      if (code !== p.code) {
+        document.getElementById("loginMessage").textContent = "⛔ Code incorrect.";
+        return;
+      }
+      if (p.pendingValidation) {
+        document.getElementById("loginMessage").textContent = "⏳ Compte non validé. Vérifie ton email.";
+        goTo("validationScreen");
+        return;
+      }
+
+      currentPlayerId = p.id;
+      savePlayers();
+      showNotification("Connexion réussie : " + p.name);
+      goTo("instructions");
+    }
+
+    // ===============================
+    // Suppression
+    // ===============================
+    function supprimerLocal(playerId) {
+      const wasCurrent = currentPlayerId === playerId;
+      players = players.filter(p => p.id !== playerId);
+      if (wasCurrent) currentPlayerId = null;
+      savePlayers();
+      renderPlayersList();
+      renderAccountsTable();
+      filterAccounts();
+      showNotification("Compte supprimé de cet appareil.");
+    }
+
+    function demanderSuppressionDefinitive(playerId) {
+      const p = getPlayerById(playerId);
+      if (!p) { showNotification("Compte introuvable."); return; }
+
+      fetch("http://localhost:3000/sendDeleteConfirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: p.email, playerId: p.id })
+      })
+      .then(r => r.text())
+      .then(msg => showNotification(msg))
+      .catch(err => console.error(err));
+
+      currentPlayerId = p.id; // cibler pour validation
+      savePlayers();
+      goTo("deleteValidationScreen");
+    }
+
+    function validerSuppressionDefinitive() {
+      const enteredCode = document.getElementById("deleteCodeInput").value.trim();
+      const p = getPlayerById(currentPlayerId);
+      if (!p) { document.getElementById("deleteMessage").textContent = "⛔ Compte introuvable."; return; }
+
+      const expectedCode = "DELETE-" + p.id;
+      if (enteredCode === expectedCode) {
+        players = players.filter(pl => pl.id !== p.id);
+        currentPlayerId = null;
+        savePlayers();
+        document.getElementById("deleteMessage").textContent = "✅ Compte supprimé définitivement.";
+        showNotification("Suppression définitive effectuée.");
+        goTo("playersScreen");
+      } else {
+        document.getElementById("deleteMessage").textContent = "⛔ Code incorrect.";
+      }
+    }
+
+    // ===============================
+    // Listes & tableaux
+    // ===============================
+    function renderPlayersList() {
+      const list = document.getElementById("playersList");
+      list.innerHTML = "";
+      if (players.length === 0) {
+        list.innerHTML = "<p>Aucun joueur sur cet appareil.</p>";
+      } else {
+        const sorted = [...players].sort((a,b) => b.level - a.level || b.soldeTotal - a.soldeTotal);
+        sorted.forEach(p => {
+          const div = document.createElement("div");
+          div.className = "section";
+          const status = p.pendingValidation ? "⏳ En attente" : "✅ Validé";
+          div.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <strong>${p.avatar || "🙂"} ${p.name}</strong><br>
+                <span class="badge">Email: ${p.email}</span>
+                <span class="badge">Niveau ${p.level}</span>
+                <span class="badge">${status}</span>
+              </div>
+              <div>
+                <button class="small-btn" onclick="prepareLogin(${p.id})">Se connecter</button>
+                <button class="small-btn" onclick="supprimerLocal(${p.id})">Supprimer local</button>
+                <button class="small-btn" onclick="demanderSuppressionDefinitive(${p.id})">Supprimer définitif</button>
+              </div>
+            </div>
+          `;
+          list.appendChild(div);
+        });
+      }
+      const btnCreate = document.getElementById("btnCreatePlayer");
+      btnCreate.disabled = players.length >= LIMITES.maxLocalAccounts;
+    }
+
+    function renderAccountsTable() {
+      const tbody = document.querySelector("#accountsTable tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      if (players.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='6'>Aucun joueur enregistré.</td></tr>";
+        return;
+      }
+
+      players.forEach(p => {
+        const statut = p.pendingValidation ? "⏳ En attente" : "✅ Validé";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${p.avatar || "🙂"}</td>
+          <td>${p.name}</td>
+          <td>${p.email}</td>
+          <td>Niveau ${p.level}</td>
+          <td>${statut}</td>
+          <td>
+            <button class="small-btn" onclick="supprimerLocal(${p.id})">Supprimer local</button>
+            <button class="small-btn" onclick="demanderSuppressionDefinitive(${p.id})">Supprimer définitif</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterAccounts() {
+      const tbody = document.querySelector("#accountsTable tbody");
+      const query = (document.getElementById("searchInput")?.value || "").toLowerCase();
+      if (!tbody) return;
+
+      const filtered = players.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        p.email.toLowerCase().includes(query)
+      );
+
+      tbody.innerHTML = "";
+      if (filtered.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='6'>Aucun compte trouvé.</td></tr>";
+        return;
+      }
+
+      filtered.forEach(p => {
+        const statut = p.pendingValidation ? "⏳ En attente" : "✅ Validé";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${p.avatar || "🙂"}</td>
+          <td>${p.name}</td>
+          <td>${p.email}</td>
+          <td>Niveau ${p.level}</td>
+          <td>${statut}</td>
+          <td>
+            <button class="small-btn" onclick="supprimerLocal(${p.id})">Supprimer local</button>
+            <button class="small-btn" onclick="demanderSuppressionDefinitive(${p.id})">Supprimer définitif</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ===============================
+    // Boot
+    // ===============================
+    window.addEventListener("load", () => {
+      loadPlayers();
+      goTo("splash");
+    });
+  </script>
 </body>
 </html>
