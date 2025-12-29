@@ -78,3 +78,9 @@ const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`✅ Serveur Node.js démarré sur http://localhost:${PORT}`);
 });
+
+const path = require("path");
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
