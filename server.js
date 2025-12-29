@@ -28,7 +28,7 @@ app.post("/sendValidationCode", async (req, res) => {
     codes[email] = code;
 
     const mailOptions = {
-      from: "tonemail@gmail.com",
+      from: "lighttony160@gmail.com",
       to: email,
       subject: "Code de validation — Super Jeu du Dé",
       text: `Voici ton code de validation : ${code}`
@@ -61,7 +61,7 @@ app.post("/sendDeleteConfirmation", async (req, res) => {
     codes[email] = code;
 
     const mailOptions = {
-      from: "tonemail@gmail.com",
+      from: "lighttony160@gmail.com",
       to: email,
       subject: "Confirmation de suppression définitive",
       text: `Votre code de suppression est : ${code}`
